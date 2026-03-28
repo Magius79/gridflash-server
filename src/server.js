@@ -6,7 +6,7 @@ console.log("[boot] Starting GridFlash server, PORT=" + process.env.PORT);
 
 const http = require("http");
 const { WebSocketServer } = require("ws");
-const { v4: uuid } = require("uuid");
+const { randomUUID: uuid } = require("crypto");
 const { Matchmaker } = require("./matchmaker");
 
 const PORT = process.env.PORT || 3000;

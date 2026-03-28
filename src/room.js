@@ -1,4 +1,4 @@
-const { v4: uuid } = require("uuid");
+const { randomUUID: uuid } = require("crypto");
 const { getDifficulty } = require("./engine/difficulty");
 const { generatePattern } = require("./engine/pattern");
 const { calculateAccuracy, scoreRound } = require("./engine/scoring");
