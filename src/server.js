@@ -145,7 +145,7 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 // --- Start ---
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`[server] GridFlash matchmaking running on port ${PORT}`);
   console.log(`[server] Health check: http://localhost:${PORT}/health`);
 });
