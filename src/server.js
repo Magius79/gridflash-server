@@ -1,3 +1,9 @@
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL]", err);
+  process.exit(1);
+});
+console.log("[boot] Starting GridFlash server, PORT=" + process.env.PORT);
+
 const http = require("http");
 const { WebSocketServer } = require("ws");
 const { v4: uuid } = require("uuid");
