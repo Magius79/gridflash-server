@@ -86,9 +86,7 @@ class Matchmaker {
         break;
 
       case "next_round":
-        // Only advance if both players signal ready
-        // (or auto-advance after a delay — keeping it simple for MVP)
-        room.advanceRound();
+        room.advanceRound(playerId);
         break;
 
       default:

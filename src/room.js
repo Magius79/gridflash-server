@@ -231,7 +231,19 @@ class Room {
     }
   }
 
-  advanceRound() {
+  advanceRound(playerId) {
+    if (this.state !== ROOM_STATES.ROUND_RESULT) return;
+
+    if (!this.readyPlayers) this.readyPlayers = new Set();
+    this.readyPlayers.add(playerId);
+
+    if (this.readyPlayers.size < 2) {
+      this.sendTo(playerId, "waiting_for_opponent");
+      return;
+    }
+
+    this.readyPlayers = null;
+
     if (this.round >= ROUND_TOTAL) {
       this.endMatch();
     } else {
