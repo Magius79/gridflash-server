@@ -14,6 +14,7 @@ function calculateAccuracy(target, player) {
 }
 
 function scoreRound(accuracy, timeMs, memTime) {
+  if (accuracy === 0) return 0;
   const accScore = Math.round(accuracy * 700);
   const maxRecallTime = memTime * 4;
   const speedBonus = Math.max(
