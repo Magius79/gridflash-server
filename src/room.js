@@ -83,6 +83,7 @@ class Room {
   }
 
   startRound() {
+    this.clearTimers();
     this.round++;
     this.difficulty = getDifficulty(this.round);
     this.pattern = generatePattern(this.difficulty.grid, this.difficulty.colors);
