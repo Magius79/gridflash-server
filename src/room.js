@@ -225,11 +225,6 @@ class Room {
         roundsTotal: ROUND_TOTAL,
       });
     }
-
-    // Check if match is over
-    if (this.round >= ROUND_TOTAL) {
-      setTimeout(() => this.endMatch(), 500);
-    }
   }
 
   advanceRound(playerId) {

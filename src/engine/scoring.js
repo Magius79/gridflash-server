@@ -1,10 +1,16 @@
 function calculateAccuracy(target, player) {
   if (!target || !player || target.length !== player.length) return 0;
   let correct = 0;
+  let total = 0;
   for (let i = 0; i < target.length; i++) {
-    if (target[i] === player[i]) correct++;
+    if (target[i] !== null) {
+      total++;
+      if (target[i] === player[i]) correct++;
+    } else if (player[i] !== null) {
+      total++;
+    }
   }
-  return correct / target.length;
+  return total === 0 ? 0 : correct / total;
 }
 
 function scoreRound(accuracy, timeMs, memTime) {
