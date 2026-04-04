@@ -47,10 +47,15 @@ class Room {
   }
 
   broadcast(type, data = {}) {
+    const msg = JSON.stringify({ type, ...data });
     for (const pid of this.playerIds) {
       const player = this.players[pid];
       if (player && player.ws.readyState === 1) {
-        player.ws.send(JSON.stringify({ type, ...data }));
+        try {
+          player.ws.send(msg);
+        } catch (e) {
+          console.warn(`[room] Failed to send to ${pid.slice(0, 8)}:`, e.message);
+        }
       }
     }
   }
@@ -58,7 +63,11 @@ class Room {
   sendTo(playerId, type, data = {}) {
     const player = this.players[playerId];
     if (player && player.ws.readyState === 1) {
-      player.ws.send(JSON.stringify({ type, ...data }));
+      try {
+        player.ws.send(JSON.stringify({ type, ...data }));
+      } catch (e) {
+        console.warn(`[room] Failed to send to ${playerId.slice(0, 8)}:`, e.message);
+      }
     }
   }
 
@@ -131,6 +140,13 @@ class Room {
   handleSubmit(playerId, playerPattern) {
     if (this.state !== ROOM_STATES.RECALL) return;
     if (this.submissions[playerId]) return; // already submitted
+
+    // Validate player pattern — replace invalid input with empty grid
+    const expectedLength = this.difficulty.grid ** 2;
+    if (!Array.isArray(playerPattern) || playerPattern.length !== expectedLength) {
+      console.warn(`[room] Invalid pattern from ${playerId.slice(0, 8)}: expected array of length ${expectedLength}`);
+      playerPattern = Array(expectedLength).fill(null);
+    }
 
     const elapsed = Date.now() - this.recallStartTime;
     const accuracy = calculateAccuracy(this.pattern, playerPattern);

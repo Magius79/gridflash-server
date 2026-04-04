@@ -19,8 +19,8 @@ function wait(ms) {
 function connectPlayer(name) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(SERVER_URL);
-    const messages = [];
-    let playerId = null;
+    const pending = []; // messages not yet claimed by a waitFor call
+    const waiters = []; // { type, resolve } entries
 
     ws.on("open", () => {
       console.log(`[${name}] Connected`);
@@ -28,43 +28,55 @@ function connectPlayer(name) {
 
     ws.on("message", (raw) => {
       const msg = JSON.parse(raw.toString());
-      messages.push(msg);
 
-      if (msg.type === "welcome") {
-        playerId = msg.playerId;
-        console.log(`[${name}] ID: ${playerId.slice(0, 8)}`);
-        resolve({ ws, messages, getId: () => playerId, name });
+      // Check if any waiter wants this message
+      const idx = waiters.findIndex((w) => w.type === msg.type);
+      if (idx !== -1) {
+        const waiter = waiters.splice(idx, 1)[0];
+        clearTimeout(waiter.timeout);
+        waiter.resolve(msg);
+      } else {
+        pending.push(msg);
       }
     });
 
     ws.on("error", reject);
-  });
-}
 
-function waitForType(player, type, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error(`${player.name}: timeout waiting for ${type}`)),
-      timeoutMs
-    );
+    // Wait for welcome to get player ID
+    const player = {
+      ws,
+      name,
+      waitFor(type, timeoutMs = 30000) {
+        // Check pending messages first
+        const idx = pending.findIndex((m) => m.type === type);
+        if (idx !== -1) {
+          return Promise.resolve(pending.splice(idx, 1)[0]);
+        }
 
-    // Check already received
-    const existing = player.messages.find((m) => m.type === type);
-    if (existing) {
-      clearTimeout(timeout);
-      resolve(existing);
-      return;
-    }
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            const wIdx = waiters.findIndex((w) => w._id === id);
+            if (wIdx !== -1) waiters.splice(wIdx, 1);
+            reject(new Error(`${name}: timeout waiting for ${type}`));
+          }, timeoutMs);
 
-    const handler = (raw) => {
+          const id = Symbol();
+          waiters.push({ type, resolve, timeout, _id: id });
+        });
+      },
+    };
+
+    // Resolve once we get the welcome message
+    const welcomeHandler = (raw) => {
       const msg = JSON.parse(raw.toString());
-      if (msg.type === type) {
-        clearTimeout(timeout);
-        player.ws.off("message", handler);
-        resolve(msg);
+      if (msg.type === "welcome") {
+        ws.off("message", welcomeHandler);
+        player.playerId = msg.playerId;
+        console.log(`[${name}] ID: ${msg.playerId.slice(0, 8)}`);
+        resolve(player);
       }
     };
-    player.ws.on("message", handler);
+    ws.on("message", welcomeHandler);
   });
 }
 
@@ -90,16 +102,18 @@ async function run() {
     p2.ws.send(JSON.stringify({ type: "find_match", name: "Bob" }));
 
     // Wait for match start
-    await waitForType(p1, "match_start");
+    await p1.waitFor("match_start");
     console.log("\n=== MATCH STARTED ===\n");
 
     for (let round = 1; round <= 5; round++) {
-      // Wait for memorize phase
-      const mem = await waitForType(p1, "memorize");
+      // Wait for memorize phase (both players)
+      const mem = await p1.waitFor("memorize");
+      await p2.waitFor("memorize");
       console.log(`Round ${round}: grid=${mem.gridSize}, colors=${mem.colorCount}, time=${mem.duration}ms`);
 
       // Wait for recall
-      await waitForType(p1, "recall_start");
+      await p1.waitFor("recall_start");
+      await p2.waitFor("recall_start");
 
       // Simulate submissions — p1 submits the correct pattern, p2 submits half-correct
       await wait(500 + Math.random() * 1000);
@@ -113,7 +127,9 @@ async function run() {
       p2.ws.send(JSON.stringify({ type: "submit", pattern: halfPattern }));
 
       // Wait for round result
-      const result = await waitForType(p1, "round_result");
+      const result = await p1.waitFor("round_result");
+      await p2.waitFor("round_result");
+
       console.log(
         `  You: ${Math.round(result.you.accuracy * 100)}% (${result.you.points}pts) | ` +
         `Opponent: ${Math.round(result.opponent.accuracy * 100)}% (${result.opponent.points}pts) | ` +
@@ -123,14 +139,13 @@ async function run() {
         `  Score: ${result.totalScore} vs ${result.opponentTotalScore}`
       );
 
-      // Advance if not last round
-      if (round < 5) {
-        p1.ws.send(JSON.stringify({ type: "next_round" }));
-      }
+      // Both players advance
+      p1.ws.send(JSON.stringify({ type: "next_round" }));
+      p2.ws.send(JSON.stringify({ type: "next_round" }));
     }
 
     // Wait for match end
-    const end = await waitForType(p1, "match_end");
+    const end = await p1.waitFor("match_end");
     console.log(`\n=== MATCH COMPLETE ===`);
     console.log(`Final: ${end.yourScore} vs ${end.opponentScore}`);
     console.log(`Result: ${end.won ? "VICTORY" : end.draw ? "DRAW" : "DEFEAT"}`);
