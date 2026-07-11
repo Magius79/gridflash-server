@@ -5,6 +5,8 @@ class Matchmaker {
     this.queue = [];          // players waiting for a match
     this.rooms = new Map();   // roomId -> Room
     this.playerRoom = new Map(); // playerId -> roomId
+    this.matchesCreated = 0;  // lifetime counters (reset on restart)
+    this.matchesCompleted = 0;
   }
 
   get stats() {
@@ -18,6 +20,8 @@ class Matchmaker {
       queued: this.queue.length,
       activeRooms: this.rooms.size,
       activePlayers,
+      matchesCreated: this.matchesCreated,
+      matchesCompleted: this.matchesCompleted,
     };
   }
 
@@ -66,6 +70,7 @@ class Matchmaker {
     this.rooms.set(room.id, room);
     this.playerRoom.set(p1.id, room.id);
     this.playerRoom.set(p2.id, room.id);
+    this.matchesCreated++;
 
     console.log(
       `[match] Room ${room.id.slice(0, 8)} created: ${p1.id.slice(0, 8)} vs ${p2.id.slice(0, 8)}`
@@ -113,6 +118,8 @@ class Matchmaker {
   cleanupRoom(roomId) {
     const room = this.rooms.get(roomId);
     if (!room) return;
+
+    if (room.state === ROOM_STATES.MATCH_END) this.matchesCompleted++;
 
     for (const pid of room.playerIds) {
       this.playerRoom.delete(pid);

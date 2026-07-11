@@ -14,6 +14,7 @@ const HEARTBEAT_INTERVAL = 30000;
 const SWEEP_INTERVAL = 60000;
 
 const matchmaker = new Matchmaker();
+let totalConnections = 0; // lifetime, resets on restart
 
 // --- HTTP server for health checks ---
 const httpServer = http.createServer((req, res) => {
@@ -23,6 +24,7 @@ const httpServer = http.createServer((req, res) => {
     res.end(JSON.stringify({
       status: "ok",
       uptime: process.uptime(),
+      totalConnections,
       ...stats,
     }));
     return;
@@ -42,6 +44,7 @@ const httpServer = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server: httpServer });
 
 wss.on("connection", (ws, req) => {
+  totalConnections++;
   const playerId = uuid();
   ws.playerId = playerId;
   ws.isAlive = true;
