@@ -4,6 +4,8 @@ const { generatePattern } = require("./engine/pattern");
 const { calculateAccuracy, scoreRound } = require("./engine/scoring");
 const { ROUND_TOTAL } = require("./engine/constants");
 
+const RESULT_TIMEOUT = 30000; // ms a player may linger on the result screen
+
 const ROOM_STATES = {
   WAITING: "waiting",
   COUNTDOWN: "countdown",
@@ -169,6 +171,7 @@ class Room {
   }
 
   forceSubmitRemaining() {
+    if (this.state !== ROOM_STATES.RECALL) return;
     for (const pid of this.playerIds) {
       if (!this.submissions[pid]) {
         // Empty submission — timed out
@@ -193,6 +196,7 @@ class Room {
   }
 
   resolveRound() {
+    this.clearTimers(); // cancel the pending auto-submit timer so it can't re-resolve
     this.state = ROOM_STATES.ROUND_RESULT;
     const [p1, p2] = this.playerIds;
     const s1 = this.submissions[p1];
@@ -241,6 +245,19 @@ class Room {
         roundsTotal: ROUND_TOTAL,
       });
     }
+
+    // Auto-advance if a player idles on the result screen, so an AFK
+    // opponent can't stall the match forever
+    const advanceTimer = setTimeout(() => {
+      if (this.state !== ROOM_STATES.ROUND_RESULT) return;
+      this.readyPlayers = null;
+      if (this.round >= ROUND_TOTAL) {
+        this.endMatch();
+      } else {
+        this.startRound();
+      }
+    }, RESULT_TIMEOUT);
+    this.timers.push(advanceTimer);
   }
 
   advanceRound(playerId) {
@@ -298,7 +315,9 @@ class Room {
 
   cleanup() {
     this.clearTimers();
-    // Room will be removed from matchmaker by the server
+    // Notify the matchmaker so playerRoom mappings are freed immediately
+    // (otherwise players can't re-queue until the next sweep)
+    if (this.onClosed) this.onClosed();
   }
 }
 

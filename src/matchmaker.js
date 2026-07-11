@@ -61,6 +61,7 @@ class Matchmaker {
   createRoom(p1, p2) {
     const room = new Room(p1);
     room.addPlayer(p2);
+    room.onClosed = () => this.cleanupRoom(room.id);
 
     this.rooms.set(room.id, room);
     this.playerRoom.set(p1.id, room.id);
