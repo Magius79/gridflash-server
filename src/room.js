@@ -228,6 +228,9 @@ class Room {
           time: mine.time,
           points: mine.points,
           timedOut: mine.timedOut || false,
+          // echo the pattern that was actually scored so the client's
+          // mistake-diff view can't diverge (e.g. after a forced timeout)
+          pattern: mine.pattern,
         },
         opponent: {
           accuracy: theirs.accuracy,
